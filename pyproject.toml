@@ -6,5 +6,8 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = ["opencv-python>=4.8,<5"]
 
+[dependency-groups]
+build = ["cx-Freeze>=8,<9"]
+
 [tool.uv]
 package = false

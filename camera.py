@@ -2,6 +2,7 @@
 
 import argparse
 import math
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -62,8 +63,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--interval", type=positive_interval, default=5.0,
                         help="Seconds between snapshots (default: 5).")
-    parser.add_argument("--output", type=Path, default=Path(__file__).resolve().parent / "snapshots",
-                        help="Directory for PNG images (default: snapshots beside this script).")
+    app_dir = Path(sys.executable if getattr(sys, "frozen", False) else __file__).resolve().parent
+    parser.add_argument("--output", type=Path, default=app_dir / "snapshots",
+                        help="Directory for PNG images (default: snapshots beside the script or executable).")
     parser.add_argument("--camera", type=int, default=0,
                         help="Camera index (default: 0, the first camera).")
     args = parser.parse_args()

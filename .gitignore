@@ -5,3 +5,6 @@ snapshots/
 
 .uv-cache/
 .uv-python/
+
+build/
+*.egg-info/
