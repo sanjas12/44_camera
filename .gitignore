@@ -8,3 +8,4 @@ snapshots/
 
 build/
 *.egg-info/
+logs/recreate_env_*
