@@ -27,7 +27,7 @@ packaging==26.3
     # via cx-freeze
 patchelf==0.19.1.0 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'armv7l' and sys_platform == 'linux') or (platform_machine == 'i686' and sys_platform == 'linux') or (platform_machine == 'ppc64le' and sys_platform == 'linux') or (platform_machine == 's390x' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')
     # via cx-freeze
-python-msilib==0.7.0 ; python_full_version >= '3.13' and sys_platform == 'win32'
+python-msilib==0.7.0 ; sys_platform == 'win32'
     # via cx-freeze
 setuptools==84.0.0
     # via cx-freeze
