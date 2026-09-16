@@ -98,7 +98,7 @@ check_internet() {
 }
 
 # --- CONFIG ---
-PIP_VERSION="25.0.1"
+PIP_VERSION="26.2.1"
 
 log "=== НАЧАЛО BOOTSTRAP ==="
 log "Лог-файл: $LOG_FILE"

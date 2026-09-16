@@ -3,7 +3,7 @@ name = "laptop-camera"
 version = "0.1.0"
 description = "Periodic snapshots from a laptop webcam"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 dependencies = ["opencv-python>=4.8,<5"]
 
 [dependency-groups]
