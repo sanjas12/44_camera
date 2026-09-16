@@ -95,3 +95,25 @@ bash scripts/build.sh --prepare-offline # подготовить зависим�
 Эта команда очищает текущее виртуальное окружение; в офлайн-режиме необходимые
 пакеты и Python должны быть доступны локально. Группа `build` хранится в
 `pyproject.toml` и фиксируется в `uv.lock`; для обычного запуска достаточно `uv sync`.
+
+## Скачивание библиотек для компьютера без интернета
+
+Проект использует Python 3.13 (см. `.python-version`). На целевом компьютере нужен Python той же minor-версии, Windows x64. Установщик Python переносится отдельно.
+
+В папке проекта выполните (одинаково в PowerShell и Git Bash):
+
+```text
+uv run --with pip python scripts/download_packages.py --destination F:/temp/python_Library
+```
+
+Скрипт автоматически согласует версию Python и ABI, экспортирует зафиксированные зависимости приложения и группы `build` из `uv.lock` в каталог загрузки и скачивает готовые wheels вместе с зависимостями. Для загрузки только библиотек камеры добавьте `--runtime-only`. При ошибке скрипт завершается с ненулевым кодом; каталог может содержать частичную загрузку, повторный запуск продолжит её.
+
+Перенесите каталог на офлайн-компьютер. Установка без интернета:
+
+```text
+py -3.13 -m venv .venv
+.venv/Scripts/python.exe -m pip install --no-index --find-links F:/temp/python_Library -r F:/temp/python_Library/requirements.txt
+.venv/Scripts/python.exe camera.py
+```
+
+При ручном скачивании для Python 3.13 используйте `--python-version 3.13 --abi cp313`. Сочетание `--python-version 3.12 --abi cp313` неверно. Сообщения `Ignoring` для macOS/Linux нормальны на Windows. Если после исправления параметров пакет всё ещё недоступен, проверьте наличие wheel указанной версии в используемом индексе. Документация: https://pip.pypa.io/en/stable/cli/pip_download/
