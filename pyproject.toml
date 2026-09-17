@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Periodic snapshots from a laptop webcam"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = ["opencv-python>=4.8,<5"]
+dependencies = ["opencv-python-headless>=4.8,<5"]
 
 [dependency-groups]
 build = ["cx-Freeze>=8,<9"]

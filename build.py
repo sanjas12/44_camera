@@ -7,8 +7,28 @@ import tomllib
 from pathlib import Path
 
 from cx_Freeze import Executable, setup
+from cx_Freeze.command.build_exe import build_exe
 
 PROJECT_ROOT = Path(__file__).resolve().parent
+
+
+class CameraBuild(build_exe):
+    """Omit OpenCV assets unused by local webcam capture and PNG output."""
+
+    def run(self):
+        super().run()
+        output = Path(self.build_exe).resolve()
+        # Keep camera backends and NumPy DLLs. FFmpeg is for video files/streams;
+        # Haar cascades are face/object detection models, unused by camera.py.
+        for pattern in ("lib/cv2/opencv_videoio_ffmpeg*.dll",
+                        "lib/cv2/data/haarcascade_*.xml"):
+            for asset in output.glob(pattern):
+                if not asset.resolve().is_relative_to(output):
+                    raise RuntimeError(f"Asset outside build directory: {asset}")
+                asset.unlink()
+                print(f"Removed unused OpenCV asset: {asset.name}")
+
+
 os.chdir(PROJECT_ROOT)
 with (PROJECT_ROOT / "pyproject.toml").open("rb") as stream:
     project = tomllib.load(stream)["project"]
@@ -33,6 +53,7 @@ setup(
     name=project["name"],
     version=project["version"],
     description=project["description"],
+    cmdclass={"build_exe": CameraBuild},
     options={
         "build_exe": {
             "build_exe": str(PROJECT_ROOT / "build" / output_name),
