@@ -1,29 +1,124 @@
 #!/usr/bin/env bash
-# Build from .venv; --prepare syncs dependencies, --prepare-offline uses uv cache.
-set -euo pipefail
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$PROJECT_ROOT"
-if (( $# > 1 )); then
-    echo "Usage: bash scripts/build.sh [--prepare|--prepare-offline]" >&2
+
+# Назначение: собирает standalone-приложение через cx_Freeze и build.py.
+# Скрипт вычисляет номер Git-ревизии, временно записывает его в
+# _revision.py, полностью пересоздаёт каталог build/ и запускает сборку
+# интерпретатором из .venv. По умолчанию зависимости не изменяются и ничего не
+# скачивается. Временный файл ревизии удаляется и после успешной сборки, и при
+# ошибке.
+# ВАЖНО: существующее содержимое build/ удаляется перед началом сборки; скрипт
+# рассчитан на Windows и поддерживает три режима:
+#   bash scripts/build.sh                   — сборка из готовой .venv (офлайн);
+#   bash scripts/build.sh --prepare         — установить runtime + build через uv;
+#   bash scripts/build.sh --prepare-offline — установить их только из кэша uv.
+
+set -e
+set -u
+
+# Определяем директорию скрипта и корень проекта
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Путь к build.py
+BUILD_FILE="$PROJECT_ROOT/build.py"
+
+# Проверка наличия build.py
+if [ ! -f "$BUILD_FILE" ]; then
+    echo "[ERROR] build.py не найден в $PROJECT_ROOT"
     exit 1
 fi
-case "${1:-}" in
-    "") ;;
-    --prepare|--prepare-offline)
-        args=(sync --locked --group build)
-        if [[ "$1" == --prepare-offline ]]; then args+=(--offline); fi
-        uv "${args[@]}"
+
+PYTHON_EXE="$PROJECT_ROOT/.venv/Scripts/python.exe"
+PREPARE_MODE="${1:-}"
+
+case "$PREPARE_MODE" in
+    "")
         ;;
-    *) echo "Usage: bash scripts/build.sh [--prepare|--prepare-offline]" >&2; exit 1 ;;
+    --prepare|--prepare-offline)
+        if ! command -v uv > /dev/null 2>&1; then
+            echo "[ERROR] Для режима $PREPARE_MODE требуется uv."
+            exit 1
+        fi
+        export UV_LINK_MODE=copy
+        UV_SYNC_ARGS=(sync --frozen --group build)
+        if [ "$PREPARE_MODE" = "--prepare-offline" ]; then
+            UV_SYNC_ARGS+=(--offline)
+        fi
+        echo "Preparing runtime + build environment ($PREPARE_MODE)..."
+        if ! uv --project "$PROJECT_ROOT" "${UV_SYNC_ARGS[@]}"; then
+            echo "[ERROR] Не удалось подготовить runtime + build зависимости."
+            exit 1
+        fi
+        ;;
+    *)
+        echo "[ERROR] Неизвестный параметр: $PREPARE_MODE"
+        echo "Использование: bash scripts/build.sh [--prepare|--prepare-offline]"
+        exit 1
+        ;;
 esac
-if [[ -f .venv/Scripts/python.exe ]]; then
-    PYTHON_EXE="$PROJECT_ROOT/.venv/Scripts/python.exe"
-else
-    PYTHON_EXE="$PROJECT_ROOT/.venv/bin/python"
-fi
-if [[ ! -f "$PYTHON_EXE" ]] || ! "$PYTHON_EXE" -c 'import cx_Freeze' >/dev/null 2>&1; then
-    echo "Build environment missing. Run: bash scripts/build.sh --prepare" >&2
+
+if [ ! -f "$PYTHON_EXE" ]; then
+    echo "[ERROR] Не найден $PYTHON_EXE"
+    echo "Подготовь .venv вручную или запусти build.sh с параметром --prepare."
     exit 1
 fi
-"$PYTHON_EXE" build.py build_exe
-echo "Build completed: $PROJECT_ROOT/build"
+
+if ! "$PYTHON_EXE" -c "import cx_Freeze" > /dev/null 2>&1; then
+    echo "[ERROR] В .venv не установлен cx-Freeze."
+    echo "Онлайн:  bash scripts/build.sh --prepare"
+    echo "Офлайн:  установи cx-Freeze 8.7.0 из локальных wheel-файлов"
+    echo "         или используй --prepare-offline, если пакет есть в кэше uv."
+    exit 1
+fi
+
+# Папка сборки
+BUILD_DIR="$PROJECT_ROOT/build"
+
+# ── Записываем временную git-ревизию ────────────────────────────────────────────────────
+# build.py пока не включает ревизию в имя или содержимое сборки.
+REVISION_FILE="$PROJECT_ROOT/_revision.py"
+
+cleanup_revision() {
+    if [ -f "$REVISION_FILE" ]; then
+        rm -f "$REVISION_FILE"
+        echo "Удалён временный файл: $REVISION_FILE"
+    fi
+}
+trap cleanup_revision EXIT
+
+if git -C "$PROJECT_ROOT" rev-list --count HEAD > /dev/null 2>&1; then
+    GIT_COUNT=$(git -C "$PROJECT_ROOT" rev-list --count HEAD)
+    echo "Git revision: rev${GIT_COUNT}"
+else
+    GIT_COUNT=0
+    echo "Git недоступен, используется rev0"
+fi
+
+cat > "$REVISION_FILE" << EOF
+# Автогенерирован скриптом build.sh во время сборки. Не редактировать вручную.
+__revision__ = "rev${GIT_COUNT}"
+EOF
+
+echo "Записан: $REVISION_FILE"
+
+# Чистим старую сборку
+if [ -d "$BUILD_DIR" ]; then
+    echo "Cleaning previous build..."
+    rm -rf "$BUILD_DIR"
+else
+    echo "No previous build found, skipping clean."
+fi
+
+# Создаём папку для лога заранее (rm -rf её удалил)
+mkdir -p "$BUILD_DIR"
+
+# Запуск сборки
+echo "Building package..."
+cd "$PROJECT_ROOT"
+"$PYTHON_EXE" build.py build -q
+
+cleanup_revision
+trap - EXIT
+
+echo "Build completed successfully."
+find "$BUILD_DIR" -type d -name "laptop-camera-*" -print

@@ -2,7 +2,7 @@
 
 # Назначение: полностью подготавливает окружение разработки проекта.
 # Скрипт удаляет существующую .venv, создаёт её заново, устанавливает runtime-,
-# dev- и build-зависимости, а затем устанавливает Git hooks pre-commit.
+# и build-зависимости, а затем устанавливает Git hooks pre-commit.
 # Поддерживает uv и fallback на pip, а также онлайн- и офлайн-установку из
 # локального каталога python_Library на дисках D, E или F.
 # Ход выполнения и ошибки записываются в каталог logs/.
@@ -17,7 +17,7 @@ set -e
 
 # Определяем абсолютные пути
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-BACKEND_DIR="$PROJECT_ROOT"
+APP_DIR="$PROJECT_ROOT"
 
 SCRIPT_NAME=$(basename "$0" .sh)
 
@@ -103,7 +103,7 @@ PIP_VERSION="26.2.1"
 log "=== НАЧАЛО BOOTSTRAP ==="
 log "Лог-файл: $LOG_FILE"
 log "Корень проекта: $PROJECT_ROOT"
-log "Директория бэкенда: $BACKEND_DIR"
+log "Директория приложения: $APP_DIR"
 
 # Поиск LOCAL_PACKAGES_DIR на дисках D, E, F
 LOCAL_PACKAGES_DIR=""
@@ -122,7 +122,7 @@ fi
 
 # --- CLEAN ---
 log "Удаляем старые .venv ..."
-rm -rf .venv "$BACKEND_DIR/.venv"
+rm -rf .venv "$APP_DIR/.venv"
 log_success ".venv удалены"
 
 # --- DETECT UV ---
@@ -149,27 +149,27 @@ USE_PYPROJECT=0
 REQUIREMENTS_FILE=""
 VENV_LOCATION=""
 
-log "Поиск файлов зависимостей в: $BACKEND_DIR"
+log "Поиск файлов зависимостей в: $APP_DIR"
 
-if [ -f "$BACKEND_DIR/pyproject.toml" ]; then
+if [ -f "$APP_DIR/pyproject.toml" ]; then
     USE_PYPROJECT=1
-    VENV_LOCATION="$BACKEND_DIR/.venv"
-    log_success "pyproject.toml найден: $BACKEND_DIR/pyproject.toml"
-    if [ -f "$BACKEND_DIR/requirements.txt" ]; then
-	REQUIREMENTS_FILE="$BACKEND_DIR/requirements.txt"
-    	VENV_LOCATION="$BACKEND_DIR/.venv"
-    	log_success "requirements.txt найден: $REQUIREMENTS_FILE"
+    VENV_LOCATION="$APP_DIR/.venv"
+    log_success "pyproject.toml найден: $APP_DIR/pyproject.toml"
+    if [ -f "$APP_DIR/requirements.txt" ]; then
+        REQUIREMENTS_FILE="$APP_DIR/requirements.txt"
+        VENV_LOCATION="$APP_DIR/.venv"
+        log_success "requirements.txt найден: $REQUIREMENTS_FILE"
     fi
-elif [ -f "$BACKEND_DIR/requirements.txt" ]; then
-    REQUIREMENTS_FILE="$BACKEND_DIR/requirements.txt"
-    VENV_LOCATION="$BACKEND_DIR/.venv"
+elif [ -f "$APP_DIR/requirements.txt" ]; then
+    REQUIREMENTS_FILE="$APP_DIR/requirements.txt"
+    VENV_LOCATION="$APP_DIR/.venv"
     log_success "requirements.txt найден: $REQUIREMENTS_FILE"
 elif [ -f "$PROJECT_ROOT/requirements.txt" ]; then
     REQUIREMENTS_FILE="$PROJECT_ROOT/requirements.txt"
     VENV_LOCATION="$PROJECT_ROOT/.venv"
     log_success "requirements.txt найден в корне проекта"
 else
-    log_error "Файлы зависимостей не найдены (искали $BACKEND_DIR/pyproject.toml и requirements.txt)"
+    log_error "Файлы зависимостей не найдены (искали $APP_DIR/pyproject.toml и requirements.txt)"
     exit 1
 fi
 
@@ -198,14 +198,14 @@ install_with_uv() {
     log "=== УСТАНОВКА ЧЕРЕЗ UV ==="
 
     if [ $USE_PYPROJECT -eq 1 ]; then
-        log "Переход в директорию бэкенда: $BACKEND_DIR"
-        cd "$BACKEND_DIR"
+        log "Переход в директорию приложения: $APP_DIR"
+        cd "$APP_DIR"
 
         log "Создание виртуального окружения..."
         uv venv
-        log_success "Виртуальное окружение создано в $BACKEND_DIR/.venv"
+        log_success "Виртуальное окружение создано в $APP_DIR/.venv"
 
-        UV_ARGS=(--group build --group dev)
+        UV_ARGS=(--group build)
         [ $USE_OFFLINE -eq 1 ] && UV_ARGS+=(--no-index --find-links="$LOCAL_PACKAGES_DIR")
 
         log "Выполнение: uv sync ${UV_ARGS[*]}"
@@ -241,7 +241,7 @@ install_with_uv() {
 install_with_pip() {
     log "=== УСТАНОВКА ЧЕРЕЗ PIP ==="
 
-    local work_dir="$BACKEND_DIR"
+    local work_dir="$APP_DIR"
     [ -n "$REQUIREMENTS_FILE" ] && work_dir="$(dirname "$REQUIREMENTS_FILE")"
 
     cd "$work_dir"
